@@ -180,6 +180,8 @@ def get_client():
 
 st.set_page_config(page_title="총무팀 업무 도우미", page_icon="🗂️")
 st.title("🗂️ 총무팀 업무 도우미")
+# 화면 맨 위에 오늘 날짜를 자동으로 보여줍니다 (연-월-일 형식).
+st.caption(f"오늘 날짜: {datetime.date.today().strftime('%Y-%m-%d')}")
 
 try:
     client = get_client()
