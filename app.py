@@ -352,3 +352,35 @@ if "morning_briefing_result" in st.session_state:
         mime="application/pdf",
         key="dl_morning_briefing",
     )
+
+st.divider()
+st.header("✉️ 업무 메일 초안")
+
+mail_situation = st.text_input(
+    "메일을 쓸 상황을 입력하세요", placeholder="예: 이번 주 회의 결과를 팀에 공유"
+)
+if st.button("업무 메일 초안 만들기"):
+    if client is None:
+        st.error("Anthropic 클라이언트가 준비되지 않아서 실행할 수 없어요.")
+    elif not mail_situation.strip():
+        st.warning("메일을 쓸 상황을 입력해 주세요.")
+    else:
+        with st.spinner("업무 메일 초안을 만들고 있어요..."):
+            st.session_state["mail_draft_result"] = run_and_capture(
+                agent.draft_work_email, client, mail_situation
+            )
+            st.session_state["mail_draft_situation"] = mail_situation
+
+if "mail_draft_result" in st.session_state:
+    st.text(st.session_state["mail_draft_result"])
+    pdf_bytes = build_pdf_bytes(
+        st.session_state["mail_draft_result"],
+        f"업무 메일 초안: {st.session_state.get('mail_draft_situation', '')}",
+    )
+    st.download_button(
+        "📄 PDF로 내려받기",
+        data=pdf_bytes,
+        file_name=f"업무메일초안_{datetime.date.today()}.pdf",
+        mime="application/pdf",
+        key="dl_mail_draft",
+    )

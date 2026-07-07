@@ -329,6 +329,46 @@ def answer_from_reports(client: anthropic.Anthropic, question: str) -> None:
     print(f"\n답변> {answer.strip()}")
 
 
+def draft_work_email(client: anthropic.Anthropic, situation: str) -> None:
+    """work-files(schedule/meetings/reports) 내용을 참고해서, 입력한 상황에 맞는 업무 메일 초안(제목/본문)을 만듭니다."""
+    if not situation.strip():
+        print("메일을 쓸 상황을 입력해 주세요. (예: 이번 주 회의 결과를 팀에 공유)")
+        return
+
+    work_files_content = load_work_files()
+    if not work_files_content.strip():
+        print("work-files 폴더에서 읽을 수 있는 파일을 찾지 못했어요.")
+        return
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=(
+                "아래 <업무자료>는 일정(schedule), 회의록(meetings), 보고서(reports) 폴더의 내용입니다. "
+                "사용자가 알려준 '메일 상황'에 맞는 업무 메일 초안을 작성해 주세요. "
+                "<업무자료>에 실제로 있는 내용(날짜, 담당자, 결정사항 등)만 근거로 구체적으로 쓰고, "
+                "<업무자료>에 없는 세부 내용은 절대 지어내지 말고 무난하고 일반적인 문구로 채우세요. "
+                "정중하고 격식 있는 회사 이메일 말투(존댓말)로 쓰고, 인사말과 맺음말도 포함하세요. "
+                "출력은 반드시 아래 형식을 지켜 '제목'과 '본문'을 나눠서 작성하세요.\n\n"
+                "제목: (한 줄로 간결하게)\n\n"
+                "본문:\n(이메일 본문 전체)\n\n"
+                f"<업무자료>\n{work_files_content}\n</업무자료>"
+            ),
+            messages=[{"role": "user", "content": f"메일 상황: {situation}"}],
+        )
+    except anthropic.APIError as e:
+        print(f"메일 초안 작성 중 문제가 생겼어요: {e}")
+        return
+
+    draft = next(
+        (block.text for block in response.content if block.type == "text"),
+        "(메일 초안을 받지 못했어요)",
+    )
+    print(f"\n업무 메일 초안 (상황: {situation})")
+    print(draft.strip())
+
+
 def show_schedule_for_date(date_str: str) -> None:
     """지정한 날짜(연-월-일)와 이름이 같은 일정 파일을 찾아서 출력합니다."""
     schedule_path = os.path.join(WORK_FILES_DIR, "schedule", f"{date_str}.txt")
@@ -459,6 +499,7 @@ def main() -> None:
     print("업무 도우미를 시작할게요! (종료하려면 'exit' 또는 '종료' 입력)")
     print("문서 검색은 '검색 <키워드>' 형식으로 입력해 주세요. (예: 검색 예산)")
     print("이번 주 회의록 요약은 '이번 주 회의록 요약해줘'처럼 물어보세요.")
+    print("업무 메일 초안은 '이번 주 회의 결과 팀에 공유하는 메일 써줘'처럼 상황을 담아 물어보세요.")
     messages = []
 
     while True:
@@ -481,6 +522,10 @@ def main() -> None:
 
         if "회의" in question and "요약" in question:
             summarize_this_week_meetings(client)
+            continue
+
+        if "메일" in question and any(kw in question for kw in ("초안", "써줘", "작성")):
+            draft_work_email(client, question)
             continue
 
         date_matches = DATE_PATTERN.findall(question)
