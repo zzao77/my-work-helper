@@ -162,10 +162,20 @@ def parse_action_items_for_csv(raw_text: str):
     return ["내용"], [[line] for line in lines]
 
 
+def get_api_key():
+    """Streamlit Cloud의 Secrets(st.secrets)를 먼저 보고, 없으면 로컬 .env/환경변수를 씁니다."""
+    try:
+        if "ANTHROPIC_API_KEY" in st.secrets:
+            return st.secrets["ANTHROPIC_API_KEY"]
+    except FileNotFoundError:
+        pass  # 로컬처럼 secrets.toml 자체가 없는 경우
+    return os.environ.get("ANTHROPIC_API_KEY")
+
+
 @st.cache_resource
 def get_client():
     agent.load_env_file(agent.ENV_FILE)
-    return agent.anthropic.Anthropic()
+    return agent.anthropic.Anthropic(api_key=get_api_key())
 
 
 st.set_page_config(page_title="총무팀 업무 도우미", page_icon="🗂️")
